@@ -34,33 +34,10 @@ if Mix.env() in [:dev, :test] do
         many_to_many(:countries, Country, join_through: "countries_currencies")
       end
 
-      def changeset(flag, attrs) do
-        flag
+      def changeset(currency, attrs) do
+        currency
         |> cast(attrs, [:code, :symbol, :name])
         |> validate_required([:code, :symbol])
-      end
-    end
-
-    defmodule Country do
-      use Ecto.Schema
-
-      import Ecto.Changeset
-
-      alias EctoExplorer.Schemas.{Flag, Currency}
-
-      schema "countries" do
-        field(:name, :string)
-        field(:code, :string)
-        field(:population, :integer)
-        has_one(:flag, Flag)
-        many_to_many(:currencies, Currency, join_through: "countries_currencies")
-      end
-
-      def changeset(country, attrs) do
-        country
-        |> cast(attrs, [:name, :code, :population])
-        |> unique_constraint(:name)
-        |> unique_constraint(:code)
       end
     end
 
@@ -82,6 +59,30 @@ if Mix.env() in [:dev, :test] do
         address
         |> cast(attrs, [:first_line, :postal_code, :city, :country_id])
         |> validate_required([:first_line, :postal_code, :city, :country_id])
+      end
+    end
+
+    defmodule Country do
+      use Ecto.Schema
+
+      import Ecto.Changeset
+
+      alias EctoExplorer.Schemas.{Address, Flag, Currency}
+
+      schema "countries" do
+        field(:name, :string)
+        field(:code, :string)
+        field(:population, :integer)
+        has_one(:flag, Flag)
+        many_to_many(:currencies, Currency, join_through: "countries_currencies")
+        has_many(:addresses, Address)
+      end
+
+      def changeset(country, attrs) do
+        country
+        |> cast(attrs, [:name, :code, :population])
+        |> unique_constraint(:name)
+        |> unique_constraint(:code)
       end
     end
   end

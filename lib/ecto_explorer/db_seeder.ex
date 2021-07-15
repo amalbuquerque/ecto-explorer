@@ -65,11 +65,68 @@ if Mix.env() in [:dev, :test] do
     def fill_tables do
       # TODO:
       # create country USA, ECU (uses USD), GBR, PRT, ESP
+      {:ok, usa_country} = insert_country("United States", "USA", 5)
+      {:ok, ecu_country} = insert_country("Ecuador", "ECU", 6)
+      {:ok, gbr_country} = insert_country("Great Britain", "GBR", 7)
+      {:ok, prt_country} = insert_country("Portugal", "PRT", 8)
+      {:ok, esp_country} = insert_country("Spain", "ESP", 9)
+
       # create currency USD, GBP, EUR
-      #
-      # create flag for some countries (let GBR without flag)
-      #
-      # create addresses for some countries (let USA without addresses)
+      {:ok, usd_currency} = insert_currency("USD", "$", "US Dollar")
+      {:ok, suc_currency} = insert_currency("SUC", "Suc", "Ecuador Sucre")
+      {:ok, gbp_currency} = insert_currency("GBP", "Pound", "Great Britain Pound")
+      {:ok, eur_currency} = insert_currency("EUR", "Eur", "Euro")
+
+      # associate currencies with countries
+      {:ok, %Country{}} = associate_country_with_currency(prt_country, eur_currency)
+      {:ok, %Country{}} = associate_country_with_currency(esp_country, eur_currency)
+
+      {:ok, %Country{}} = associate_country_with_currency(usa_country, usd_currency)
+      {:ok, %Country{}} = associate_country_with_currency(ecu_country, usd_currency)
+
+      {:ok, %Country{}} = associate_country_with_currency(ecu_country, suc_currency)
+
+      {:ok, %Country{}} = associate_country_with_currency(gbr_country, gbp_currency)
+
+      # create flags (GBR without flag)
+      {:ok, _usa_flag} = insert_flag("RBW", "horizontal", usa_country.id)
+      {:ok, _ecu_flag} = insert_flag("YBR", "horizontal", ecu_country.id)
+      # {:ok, _gbr_flag} = insert_flag("RBW", "union jack", gbr_country.id)
+      {:ok, _prt_flag} = insert_flag("GRY", "vertical", prt_country.id)
+      {:ok, _esp_flag} = insert_flag("RYR", "horizontal", esp_country.id)
+
+      # create addresses for some countries (USA without addresses)
+      {:ok, _ecu_addresses} = insert_x_addresses(ecu_country, 6)
+      {:ok, _prt_addresses} = insert_x_addresses(prt_country, 5)
+      {:ok, _esp_addresses} = insert_x_addresses(esp_country, 4)
+      {:ok, _gbr_addresses} = insert_x_addresses(gbr_country, 3)
+    end
+
+    defp insert_x_addresses(country, x) do
+      1..x
+      |> Enum.reduce_while([], fn x, acc ->
+        suffix = "#{country.code}_#{x}"
+
+        case insert_address(
+               "first_line_#{suffix}",
+               "postal_code_#{suffix}",
+               "city_#{suffix}",
+               country.id
+             ) do
+          {:ok, address} ->
+            {:cont, [address | acc]}
+
+          error ->
+            {:halt, error}
+        end
+      end)
+      |> case do
+        [%Address{} | _] = addresses ->
+          {:ok, addresses}
+
+        error ->
+          error
+      end
     end
 
     def insert_country(name, code, population) do
