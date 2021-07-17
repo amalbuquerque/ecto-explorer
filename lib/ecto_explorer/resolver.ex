@@ -3,11 +3,16 @@ defmodule EctoExplorer.Resolver do
     defstruct [:key, :index]
   end
 
+  require Logger
+
   @doc false
   def resolve(current, %Step{} = step) do
     with {:ok, step} <- validate_step(current, step) do
       _resolve(current, step)
     else
+      {:error, :current_is_nil} ->
+        nil
+
       _error ->
         raise ArgumentError, "Invalid step #{inspect(step)} when evaluating #{inspect(current)}"
     end
@@ -21,6 +26,10 @@ defmodule EctoExplorer.Resolver do
 
         _resolve(current, step)
 
+      nil ->
+        Logger.warn("[Current: #{inspect(current)}] Step '#{step_key}' resolved to `nil`")
+        nil
+
       value ->
         value
     end
@@ -31,7 +40,7 @@ defmodule EctoExplorer.Resolver do
     case Map.get(current, step_key) do
       %Ecto.Association.NotLoaded{} ->
         # TODO: The preload needs to happen with a sort by ID,
-        # otherwise the index is moot
+        # otherwise the index access is moot
         current = EctoExplorer.cached_repo().preload(current, step_key)
 
         _resolve(current, step)
@@ -153,6 +162,10 @@ defmodule EctoExplorer.Resolver do
       true -> {:ok, step}
       _ -> {:error, :invalid_step}
     end
+  end
+
+  def validate_step(nil, _step) do
+    {:error, :current_is_nil}
   end
 
   def validate_step(_current, _step) do
