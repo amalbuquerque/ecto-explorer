@@ -5,6 +5,8 @@ defmodule EctoExplorer do
 
   require Logger
 
+  alias EctoExplorer.Resolver
+
   @repo_agent_name EctoExplorer.CachedRepo
 
   defmacro __using__(repo: repo) do
@@ -23,6 +25,17 @@ defmodule EctoExplorer do
     Agent.get(@repo_agent_name, & &1)
   end
 
+  @doc false
+  def check_cached_repo! do
+    case Process.whereis(@repo_agent_name) do
+      nil ->
+        raise "To use the `EctoExplorer.~>/2` macro you need to `use EctoExplorer, repo: <your-repo-module>` first."
+
+      _ ->
+        :ok
+    end
+  end
+
   def maybe_start_repo_agent(repo) do
     case Process.whereis(@repo_agent_name) do
       nil ->
@@ -33,12 +46,38 @@ defmodule EctoExplorer do
     end
   end
 
-  defmacro left ~> right do
-    Logger.debug("LEFT: #{inspect(left)}")
-    Logger.debug("RIGHT: #{inspect(right)}")
+  @doc """
+  This macro allows you to easily explore Ecto associations
+  in your shell, without having to `Repo.preload/2` each time
+  you want to explore the next association.
 
-    quote bind_quoted: [left: left, right: right] do
-      inspect(left) <> "\nZZ\n" <> inspect(right)
+  You need to `use EctoExplorer, repo: <your-ecto-repo>` before
+  you can use the `~>/2` macro.
+
+  Example:
+  ```
+  iex> author = Repo.get(Author, 1)
+  %Author{id: 1}
+
+  iex> author~>address.city
+  "Lisbon"
+
+  iex> author~>posts[0].title
+  "My first blog post"
+  ```
+  """
+  defmacro left ~> right do
+    check_cached_repo!()
+
+    quoted_steps =
+      Resolver.steps(right)
+      |> Macro.escape()
+
+    quote bind_quoted: [left: left, steps: quoted_steps] do
+      steps
+      |> Enum.reduce(left, fn step, acc ->
+        EctoExplorer.Resolver.resolve(acc, step)
+      end)
     end
   end
 end
