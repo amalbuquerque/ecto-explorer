@@ -13,11 +13,14 @@ iex> f = Repo.get_by(Flag, colors: "YBR")
 
 iex> f~>country.addresses[0].postal_code
 "postal_code_ECU_1"
+
+iex> f~>country.addresses[-1].postal_code
+"postal_code_ECU_6"
 ```
 
-## What's missing
+## Next steps
 
-- Currently the `Repo.preload/2` being executed under the hood for you isn't sorting results by ID, hence the code doesn't guarantee that `addresses[-1]` is in fact the last address that was inserted (or that `addresses[0]` is the first one).
+- Allow index access to get specific structs by a specific criteria, e.g. `flag~>country.addresses[id=123]` or `flag~>country.addresses[city="Lisbon"]`
 
 ## Installation
 
@@ -26,7 +29,7 @@ The package can be installed by adding `ecto_explorer` to your list of dependenc
 ```elixir
 def deps do
   [
-    {:ecto_explorer, "~> 0.1.0", only: [:dev, :test]}
+    {:ecto_explorer, "~> 0.5.0", only: [:dev, :test]}
   ]
 end
 ```
@@ -34,7 +37,7 @@ end
 ℹ️  Notice that we're only adding it as a dependency for `:dev` and `:test` Mix environments.
 
 🚨 Please don't use this in Production! This library is a convenience to quickly navigate
-complex domain models, it shouldn't ever be considered as a replacement of proper consideration
-of how you `Repo.preload/2` your associations.
+complex domain models, it shouldn't ever be considered as a way to avoid thinking about
+how you `Repo.preload/2` your associations.
 
 Docs can be found at [https://hexdocs.pm/ecto_explorer](https://hexdocs.pm/ecto_explorer).
