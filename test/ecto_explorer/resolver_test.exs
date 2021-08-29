@@ -1,6 +1,7 @@
 defmodule EctoExplorer.ResolverTest do
   use ExUnit.Case, async: true
 
+  import Ecto.Query
   import ExUnit.CaptureLog
 
   alias EctoExplorer.Repo
@@ -10,8 +11,7 @@ defmodule EctoExplorer.ResolverTest do
   alias EctoExplorer.Schemas.{
     Flag,
     Country,
-    Address,
-    Currency
+    Address
   }
 
   setup_all do
@@ -39,6 +39,27 @@ defmodule EctoExplorer.ResolverTest do
       current = Repo.get_by(Country, code: "ECU")
 
       assert %Flag{colors: "YBR"} = Subject.resolve(current, %Step{key: :flag})
+    end
+
+    # this test depends on the DB, I wasn't able to
+    # easily make it fail with the current DB model
+    test "it resolves an association step ordering the association results" do
+      current = Repo.get_by(Country, code: "PRT")
+
+      {max_id_address, second_updated_address} = mix_address_ids(current.id)
+
+      addresses = Subject.resolve(current, %Step{key: :addresses})
+
+      assert is_list(addresses)
+      assert length(addresses) > 0
+
+      last_address = Enum.reverse(addresses) |> hd()
+
+      assert last_address.id == max_id_address.id
+
+      sorted_addresses = Enum.sort_by(addresses, & &1.id) |> Enum.map(& &1.id)
+
+      assert Enum.map(addresses, & &1.id) == sorted_addresses
     end
 
     test "it resolves a basic step with an index" do
@@ -250,5 +271,24 @@ defmodule EctoExplorer.ResolverTest do
         Subject.steps(rhs)
       end
     end
+  end
+
+  defp mix_address_ids(country_id) do
+    addresses = Repo.all(from(a in Address, where: a.country_id == ^country_id))
+
+    [first_address, second_address | _] = addresses
+    max_address_id = Repo.aggregate(Address, :max, :id)
+
+    new_address_id = max_address_id + 42
+
+    changeset = Ecto.Changeset.change(first_address, id: new_address_id)
+
+    {:ok, updated_first_address} = Repo.update(changeset)
+
+    changeset = Ecto.Changeset.change(second_address, id: new_address_id - 1)
+
+    {:ok, updated_second_address} = Repo.update(changeset)
+
+    {updated_first_address, updated_second_address}
   end
 end

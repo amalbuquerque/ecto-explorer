@@ -5,6 +5,8 @@ defmodule EctoExplorer.Resolver do
 
   require Logger
 
+  alias EctoExplorer.Preloader
+
   @doc false
   def resolve(current, %Step{} = step) do
     with {:ok, step} <- validate_step(current, step) do
@@ -22,7 +24,7 @@ defmodule EctoExplorer.Resolver do
   def _resolve(current, %Step{key: step_key, index: nil} = step) do
     case Map.get(current, step_key) do
       %Ecto.Association.NotLoaded{} ->
-        current = EctoExplorer.cached_repo().preload(current, step_key)
+        current = Preloader.preload(current, step_key)
 
         _resolve(current, step)
 
@@ -39,14 +41,11 @@ defmodule EctoExplorer.Resolver do
   def _resolve(current, %Step{key: step_key, index: index} = step) when is_integer(index) do
     case Map.get(current, step_key) do
       %Ecto.Association.NotLoaded{} ->
-        # TODO: The preload needs to happen with a sort by ID,
-        # otherwise the index access is moot
-        current = EctoExplorer.cached_repo().preload(current, step_key)
+        current = Preloader.preload(current, step_key)
 
         _resolve(current, step)
 
       value when is_list(value) ->
-        # TODO: Check the previous comment
         Enum.at(value, index)
     end
   end
