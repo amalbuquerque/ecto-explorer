@@ -51,6 +51,18 @@ if Mix.env() in [:dev, :test] do
       );
     """
 
+    def drop_tables do
+      [
+        "countries",
+        "flags",
+        "currencies",
+        "countries_currencies",
+        "addresses"
+      ]
+      |> Enum.reverse()
+      |> Enum.map(&Repo.query("DROP TABLE #{&1}"))
+    end
+
     def create_tables do
       [
         @countries_table,
