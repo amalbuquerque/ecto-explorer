@@ -53,7 +53,7 @@ defmodule EctoExplorer.ResolverTest do
       assert is_list(addresses)
       assert length(addresses) > 0
 
-      last_address = Enum.reverse(addresses) |> hd()
+      last_address = addresses |> Enum.reverse() |> hd()
 
       assert last_address.id == max_id_address.id
 

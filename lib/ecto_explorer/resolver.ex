@@ -29,7 +29,7 @@ defmodule EctoExplorer.Resolver do
         _resolve(current, step)
 
       nil ->
-        Logger.warn("[Current: #{inspect(current)}] Step '#{step_key}' resolved to `nil`")
+        Logger.warning("[Current: #{inspect(current)}] Step '#{step_key}' resolved to `nil`")
         nil
 
       value ->
