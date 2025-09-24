@@ -12,10 +12,7 @@ defmodule EctoExplorer.Preloader do
 
     # The preload needs to be sorted by primary key,
     # otherwise the index access provided by the EctoExplorer doesn't make much sense
-    sorted_preloaded =
-      current
-      |> Map.get(step_key)
-      |> Enum.sort_by(&Map.get(&1, primary_key))
+    sorted_preloaded = Enum.sort_by(preloaded, &Map.get(&1, primary_key))
 
     %{current | step_key => sorted_preloaded}
   end
@@ -25,7 +22,8 @@ defmodule EctoExplorer.Preloader do
   defp preload_primary_key(current, step_key) do
     step_module = step_module(current, step_key)
 
-    step_module.__schema__(:primary_key)
+    :primary_key
+    |> step_module.__schema__()
     |> hd()
   end
 

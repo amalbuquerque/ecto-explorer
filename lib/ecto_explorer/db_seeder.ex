@@ -75,7 +75,6 @@ if Mix.env() in [:dev, :test] do
     end
 
     def fill_tables do
-      # TODO:
       # create country USA, ECU (uses USD), GBR, PRT, ESP
       {:ok, usa_country} = insert_country("United States", "USA", 5)
       {:ok, ecu_country} = insert_country("Ecuador", "ECU", 6)

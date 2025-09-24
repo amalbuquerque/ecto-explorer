@@ -8,11 +8,9 @@ defmodule EctoExplorer.ResolverTest do
   alias EctoExplorer.Resolver, as: Subject
   alias EctoExplorer.Resolver.Step
 
-  alias EctoExplorer.Schemas.{
-    Flag,
-    Country,
-    Address
-  }
+  alias EctoExplorer.Schemas.Address
+  alias EctoExplorer.Schemas.Country
+  alias EctoExplorer.Schemas.Flag
 
   setup_all do
     # we do this to start the agent that
@@ -46,7 +44,7 @@ defmodule EctoExplorer.ResolverTest do
     test "it resolves an association step ordering the association results" do
       current = Repo.get_by(Country, code: "PRT")
 
-      {max_id_address, second_updated_address} = mix_address_ids(current.id)
+      {max_id_address, _second_updated_address} = mix_address_ids(current.id)
 
       addresses = Subject.resolve(current, %Step{key: :addresses})
 
@@ -95,19 +93,19 @@ defmodule EctoExplorer.ResolverTest do
     test "it resolves an association step with an index" do
       current = Repo.get_by(Country, code: "PRT")
 
-      # TODO: note that we aren't asserting the actual
-      # address we're getting, since we don't enforce *yet*
-      # the order when preloading the addresses
-      assert %Address{} = Subject.resolve(current, %Step{key: :addresses, index: 0})
+      all_addresses = Repo.all(from a in Address, where: a.country_id == ^current.id)
+      first_address = Enum.min_by(all_addresses, & &1.id)
+
+      assert first_address == Subject.resolve(current, %Step{key: :addresses, index: 0})
     end
 
     test "it resolves an association step with a negative index" do
       current = Repo.get_by(Country, code: "PRT")
 
-      # TODO: note that we aren't asserting the actual
-      # address we're getting, since we don't enforce *yet*
-      # the order when preloading the addresses
-      assert %Address{} = Subject.resolve(current, %Step{key: :addresses, index: -1})
+      all_addresses = Repo.all(from a in Address, where: a.country_id == ^current.id)
+      last_address = Enum.max_by(all_addresses, & &1.id)
+
+      assert last_address == Subject.resolve(current, %Step{key: :addresses, index: -1})
     end
 
     test "it returns `nil` if current is nil" do

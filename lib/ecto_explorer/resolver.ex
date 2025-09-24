@@ -24,9 +24,9 @@ defmodule EctoExplorer.Resolver do
   def _resolve(current, %Step{key: step_key, index: nil} = step) do
     case Map.get(current, step_key) do
       %Ecto.Association.NotLoaded{} ->
-        current = Preloader.preload(current, step_key)
-
-        _resolve(current, step)
+        current
+        |> Preloader.preload(step_key)
+        |> _resolve(step)
 
       nil ->
         Logger.warning("[Current: #{inspect(current)}] Step '#{step_key}' resolved to `nil`")
@@ -41,9 +41,9 @@ defmodule EctoExplorer.Resolver do
   def _resolve(current, %Step{key: step_key, index: index} = step) when is_integer(index) do
     case Map.get(current, step_key) do
       %Ecto.Association.NotLoaded{} ->
-        current = Preloader.preload(current, step_key)
-
-        _resolve(current, step)
+        current
+        |> Preloader.preload(step_key)
+        |> _resolve(step)
 
       value when is_list(value) ->
         Enum.at(value, index)
@@ -79,7 +79,8 @@ defmodule EctoExplorer.Resolver do
       # so we know there will be one step with index
       :get, %{visited: [Access | _]} = acc ->
         acc =
-          accumulate_node(acc, :get)
+          acc
+          |> accumulate_node(:get)
           |> increment_expected_index_steps()
 
         {:get, acc}
@@ -91,7 +92,8 @@ defmodule EctoExplorer.Resolver do
 
       {:-, _, _} = node, acc ->
         acc =
-          accumulate_node(acc, node)
+          acc
+          |> accumulate_node(node)
           |> negate_last_step_index()
 
         {node, acc}
@@ -113,7 +115,8 @@ defmodule EctoExplorer.Resolver do
 
       index, acc when is_integer(index) ->
         acc =
-          accumulate_node(acc, index)
+          acc
+          |> accumulate_node(index)
           |> update_last_step_index(index)
 
         {index, acc}

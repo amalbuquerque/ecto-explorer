@@ -76,7 +76,8 @@ defmodule EctoExplorer do
     check_cached_repo!()
 
     quoted_steps =
-      Resolver.steps(right)
+      right
+      |> Resolver.steps()
       |> Macro.escape()
 
     quote bind_quoted: [left: left, steps: quoted_steps] do

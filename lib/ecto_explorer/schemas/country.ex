@@ -4,7 +4,9 @@ if Mix.env() in [:dev, :test] do
 
     import Ecto.Changeset
 
-    alias EctoExplorer.Schemas.{Address, Flag, Currency}
+    alias EctoExplorer.Schemas.Address
+    alias EctoExplorer.Schemas.Currency
+    alias EctoExplorer.Schemas.Flag
 
     schema "countries" do
       field(:name, :string)

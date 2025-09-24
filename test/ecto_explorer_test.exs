@@ -6,12 +6,8 @@ defmodule EctoExplorerTest do
 
   alias EctoExplorer.Repo
 
-  alias EctoExplorer.Schemas.{
-    Flag,
-    Country,
-    Address,
-    Currency
-  }
+  alias EctoExplorer.Schemas.Flag
+  alias EctoExplorer.Schemas.Country
 
   setup_all do
     # we do this to start the agent that
