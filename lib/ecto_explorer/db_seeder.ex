@@ -181,5 +181,11 @@ if Mix.env() in [:dev, :test] do
       |> Ecto.Changeset.put_assoc(:currencies, [currency | country.currencies])
       |> Repo.update()
     end
+
+    def seed_all do
+      drop_tables()
+      create_tables()
+      fill_tables()
+    end
   end
 end
