@@ -12,7 +12,7 @@ defmodule EctoExplorer.Resolver do
   """
 
   defmodule Step do
-    defstruct [:key, :index]
+    defstruct [:key, :index, :where]
   end
 
   require Logger
@@ -86,62 +86,88 @@ defmodule EctoExplorer.Resolver do
   @doc false
   def _steps(quoted_right) do
     quoted_right
-    |> Macro.postwalk(%{visited: [], steps: [], expected_index_steps: 0}, fn
-      # :get is the current node, and Access was the previous
-      # so we know there will be one step with index
-      :get, %{visited: [Access | _]} = acc ->
-        acc =
-          acc
-          |> accumulate_node(:get)
-          |> increment_expected_index_steps()
+    |> Macro.postwalk(%{visited: [], steps: [], expected_index_steps: 0}, &process_node/2)
+  end
 
-        {:get, acc}
+  # :get is the current node, and Access was the previous
+  # so we know there will be one step with index
+  defp process_node(:get, %{visited: [Access | _]} = acc) do
+    acc =
+      acc
+      |> accumulate_node(:get)
+      |> increment_expected_index_steps()
 
-      Access, acc ->
-        acc = accumulate_node(acc, Access)
+    {:get, acc}
+  end
 
-        {Access, acc}
+  defp process_node(Access, acc) do
+    acc = accumulate_node(acc, Access)
 
-      {:-, _, _} = node, acc ->
-        acc =
-          acc
-          |> accumulate_node(node)
-          |> negate_last_step_index()
+    {Access, acc}
+  end
 
-        {node, acc}
+  defp process_node({:-, _, _} = node, acc) do
+    acc =
+      acc
+      |> accumulate_node(node)
+      |> negate_last_step_index()
 
-      {:., _, _} = node, acc ->
-        acc = accumulate_node(acc, node)
+    {node, acc}
+  end
 
-        {node, acc}
+  defp process_node({:., _, _} = node, acc) do
+    acc = accumulate_node(acc, node)
 
-      {first_step, _, _} = node, acc when is_atom(first_step) ->
-        acc = accumulate_node(acc, node, %Step{key: first_step})
+    {node, acc}
+  end
 
-        {node, acc}
+  defp process_node({:=, _, [{clause_key, _, _}, clause_value]} = node, acc) do
+    IO.inspect(node, label: ":= NODE")
+    IO.inspect(acc, label: "ACC")
 
-      step, acc when is_atom(step) ->
-        acc = accumulate_node(acc, step, %Step{key: step})
+    acc =
+      acc
+      |> accumulate_node(node)
+      |> update_last_step_where(clause_key, clause_value)
 
-        {step, acc}
+    {node, acc}
+  end
 
-      index, acc when is_integer(index) ->
-        acc =
-          acc
-          |> accumulate_node(index)
-          |> update_last_step_index(index)
+  defp process_node({first_step, _, _} = node, acc) when is_atom(first_step) do
+    acc = accumulate_node(acc, node, %Step{key: first_step})
 
-        {index, acc}
+    {node, acc}
+  end
 
-      node, acc ->
-        acc = accumulate_node(acc, node)
+  defp process_node(step, acc) when is_atom(step) do
+    acc = accumulate_node(acc, step, %Step{key: step})
 
-        {node, acc}
-    end)
+    {step, acc}
+  end
+
+  defp process_node(index, acc) when is_integer(index) do
+    acc =
+      acc
+      |> accumulate_node(index)
+      |> update_last_step_index(index)
+
+    {index, acc}
+  end
+
+  defp process_node(node, acc) do
+    acc = accumulate_node(acc, node)
+
+    {node, acc}
   end
 
   defp negate_last_step_index(%{steps: [last_step | rest_steps]} = acc) do
     updated_step = %{last_step | index: -last_step.index}
+
+    %{acc | steps: [updated_step | rest_steps]}
+  end
+
+  defp update_last_step_where(%{steps: [last_step | rest_steps]} = acc, clause_key, clause_value) do
+    updated_step = %{last_step | where: [{clause_key, clause_value}]}
 
     %{acc | steps: [updated_step | rest_steps]}
   end

@@ -266,6 +266,18 @@ defmodule EctoExplorer.ResolverTest do
         end
       end
     end
+
+    test "makes steps for a 1-hop right-hand side, the with a single 'where' clause" do
+      rhs = quote do: foo[id=42]
+
+      assert [%Step{key: :foo, where: [id: 42]}] == Subject.steps(rhs)
+    end
+
+    test "makes steps for a 2-hop right-hand side, the first one with a single 'where' clause" do
+      rhs = quote do: foo[id=42].bar
+
+      assert [%Step{key: :foo, where: [id: 42]}, %Step{key: :bar}] == Subject.steps(rhs)
+    end
   end
 
   defp mix_address_ids(country_id) do
