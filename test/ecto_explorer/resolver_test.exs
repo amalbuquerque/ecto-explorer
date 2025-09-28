@@ -254,29 +254,54 @@ defmodule EctoExplorer.ResolverTest do
       assert [%Step{key: :foo}, %Step{key: :bar, index: -42}] == Subject.steps(rhs)
     end
 
-    for {type, value} <- [{String, "oops"}, {Atom, :oops}] do
-      test "raises error if the index is not integer (#{type})" do
-        rhs =
-          quote bind_quoted: [value: unquote(value)] do
-            foo.bar[value]
-          end
+    test "raises error if the index is not integer (String)" do
+      rhs = quote do: foo.bar["oops"]
 
-        assert_raise ArgumentError, fn ->
-          Subject.steps(rhs)
-        end
+      assert_raise ArgumentError, fn ->
+        Subject.steps(rhs)
+      end
+    end
+
+    test "raises error if the index is not integer (atom)" do
+      rhs = quote do: foo.bar[123].baz[:oops].xyz
+
+      assert_raise ArgumentError, fn ->
+        Subject.steps(rhs)
       end
     end
 
     test "makes steps for a 1-hop right-hand side, the with a single 'where' clause" do
-      rhs = quote do: foo[id=42]
+      rhs = quote do: foo[id = 42]
 
       assert [%Step{key: :foo, where: [id: 42]}] == Subject.steps(rhs)
     end
 
     test "makes steps for a 2-hop right-hand side, the first one with a single 'where' clause" do
-      rhs = quote do: foo[id=42].bar
+      rhs = quote do: foo[id = 42].bar
 
       assert [%Step{key: :foo, where: [id: 42]}, %Step{key: :bar}] == Subject.steps(rhs)
+    end
+
+    test "makes steps for a 2-hop right-hand side, the first one with multiple 'where' clauses" do
+      rhs = quote do: foo[id = 42][type = "foo"].bar
+
+      assert [%Step{key: :foo, where: [type: "foo", id: 42]}, %Step{key: :bar}] ==
+               Subject.steps(rhs)
+    end
+
+    test "makes steps for a multiple-hop right-hand side, some with multiple 'where' clauses" do
+      rhs =
+        quote do:
+                foo[id = 42][type = "abc"].qux[yes = :yup].bar.baz[cool = true].xyz[www = "http"].final
+
+      assert [
+               %Step{key: :foo, where: [type: "abc", id: 42]},
+               %Step{key: :qux, where: [yes: :yup]},
+               %Step{key: :bar},
+               %Step{key: :baz, where: [cool: true]},
+               %Step{key: :xyz, where: [www: "http"]},
+               %Step{key: :final}
+             ] == Subject.steps(rhs)
     end
   end
 

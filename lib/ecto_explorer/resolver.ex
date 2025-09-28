@@ -71,13 +71,28 @@ defmodule EctoExplorer.Resolver do
        steps: steps
      }} = _steps(quoted_right)
 
-    steps_with_index = Enum.count(steps, & &1.index)
+    # both index and where steps use the `[...]` construct
+    steps_with_index =
+      steps
+      |> Enum.map(fn step ->
+        cond do
+          is_integer(step.index) ->
+            1
+
+          is_list(step.where) ->
+            length(step.where)
+
+          true ->
+            0
+        end
+      end)
+      |> Enum.sum()
 
     steps = Enum.reverse(steps)
 
     if expected_index_steps != steps_with_index do
       raise ArgumentError,
-            "Expected #{expected_index_steps} steps with index, only got #{steps_with_index}. Right-hand expression: #{Macro.to_string(quoted_right)}, steps: #{inspect(steps)}"
+            "Expected #{expected_index_steps} steps with index/where, only got #{steps_with_index}. Right-hand expression: #{Macro.to_string(quoted_right)}, steps: #{inspect(steps)}"
     end
 
     steps
@@ -122,9 +137,6 @@ defmodule EctoExplorer.Resolver do
   end
 
   defp process_node({:=, _, [{clause_key, _, _}, clause_value]} = node, acc) do
-    IO.inspect(node, label: ":= NODE")
-    IO.inspect(acc, label: "ACC")
-
     acc =
       acc
       |> accumulate_node(node)
@@ -166,8 +178,31 @@ defmodule EctoExplorer.Resolver do
     %{acc | steps: [updated_step | rest_steps]}
   end
 
-  defp update_last_step_where(%{steps: [last_step | rest_steps]} = acc, clause_key, clause_value) do
-    updated_step = %{last_step | where: [{clause_key, clause_value}]}
+  defp update_last_step_where(%{steps: [_last_step | rest_steps]} = acc, clause_key, clause_value)
+       when is_integer(clause_value) or is_binary(clause_value) do
+    # the last_step is about the "key" used by the where clause, so we drop it
+    # and add the where clause to the last_step of the rest_steps
+    [step_to_update | rest_steps] = rest_steps
+    updated_where = Keyword.put(step_to_update.where || [], clause_key, clause_value)
+    updated_step = %{step_to_update | where: updated_where}
+
+    %{acc | steps: [updated_step | rest_steps]}
+  end
+
+  defp update_last_step_where(
+         %{steps: [last_step, before_last_step | rest_steps]} = acc,
+         clause_key,
+         clause_value
+       )
+       when is_atom(clause_value) do
+    # atoms are being collected as separate steps
+    %Step{key: ^clause_value} = last_step
+    %Step{key: ^clause_key} = before_last_step
+
+    [step_to_update | rest_steps] = rest_steps
+
+    updated_where = Keyword.put(step_to_update.where || [], clause_key, clause_value)
+    updated_step = %{step_to_update | where: updated_where}
 
     %{acc | steps: [updated_step | rest_steps]}
   end
