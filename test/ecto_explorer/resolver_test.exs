@@ -254,19 +254,16 @@ defmodule EctoExplorer.ResolverTest do
       assert [%Step{key: :foo}, %Step{key: :bar, index: -42}] == Subject.steps(rhs)
     end
 
-    test "raises error if the index is not integer (string)" do
-      rhs = quote do: foo.bar["oops"]
+    for {type, value} <- [{String, "oops"}, {Atom, :oops}] do
+      test "raises error if the index is not integer (#{type})" do
+        rhs =
+          quote bind_quoted: [value: unquote(value)] do
+            foo.bar[value]
+          end
 
-      assert_raise ArgumentError, fn ->
-        Subject.steps(rhs)
-      end
-    end
-
-    test "raises error if the index is not integer (atom)" do
-      rhs = quote do: foo.bar[:oops]
-
-      assert_raise ArgumentError, fn ->
-        Subject.steps(rhs)
+        assert_raise ArgumentError, fn ->
+          Subject.steps(rhs)
+        end
       end
     end
   end

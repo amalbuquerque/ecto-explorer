@@ -1,4 +1,16 @@
 defmodule EctoExplorer.Resolver do
+  @moduledoc """
+  Translates the `x~><query_expression>` quoted expression into a set of steps,
+  and then _resolves_ each step to get the resulting value.
+
+  To resolve a step means getting the resulting value after applying the step.
+
+  E.g. in `country~>addresses[3]`, there are two steps, `addresses` and `[3]`.
+
+  The first `addresses` step will return all addresses of the `country` struct,
+  whereas the `[3]` step will return the 4th (0-index based) address.
+  """
+
   defmodule Step do
     defstruct [:key, :index]
   end
