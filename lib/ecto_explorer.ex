@@ -12,7 +12,7 @@ defmodule EctoExplorer do
   defmacro __using__(repo: repo) do
     if Mix.env() not in [:dev, :test] do
       IO.puts(
-        "⚠️ You're using EctoExplorer on the `#{to_string(Mix.env())}` environment.\n⚠️ EctoExplorer isn't in any way optimized for Production usage, and forces the preload of each association. Use with care!"
+        "⚠️ You're using EctoExplorer on the `#{Mix.env()}` environment.\n⚠️ EctoExplorer isn't in any way optimized for Production usage, and forces the preload of each association. Use with care!"
       )
     end
 
