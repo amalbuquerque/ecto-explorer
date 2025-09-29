@@ -37,7 +37,7 @@ defmodule EctoExplorer.Resolver do
     case Map.get(current, step_key) do
       %Ecto.Association.NotLoaded{} ->
         current
-        |> Preloader.preload(step_key)
+        |> Preloader.preload(step)
         |> _resolve(step)
 
       nil ->
@@ -54,7 +54,7 @@ defmodule EctoExplorer.Resolver do
     case Map.get(current, step_key) do
       %Ecto.Association.NotLoaded{} ->
         current
-        |> Preloader.preload(step_key)
+        |> Preloader.preload(step)
         |> _resolve(step)
 
       value when is_list(value) ->

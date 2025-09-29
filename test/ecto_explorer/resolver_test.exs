@@ -99,6 +99,26 @@ defmodule EctoExplorer.ResolverTest do
       assert first_address == Subject.resolve(current, %Step{key: :addresses, index: 0})
     end
 
+    test "it resolves an association step with a where clause" do
+      current = Repo.get_by(Country, code: "PRT")
+
+      assert [%Address{first_line: "first_line_PRT_3"}] =
+               Subject.resolve(current, %Step{
+                 key: :addresses,
+                 where: [first_line: "first_line_PRT_3"]
+               })
+    end
+
+    test "it resolves an association step with multiple where clauses" do
+      current = Repo.get_by(Country, code: "PRT")
+      country_id = current.id
+
+      step = %Step{key: :addresses, where: [country_id: current.id, city: "city_PRT_2"]}
+
+      assert [%Address{country_id: ^country_id, city: "city_PRT_2"}] =
+               Subject.resolve(current, step)
+    end
+
     test "it resolves an association step with a negative index" do
       current = Repo.get_by(Country, code: "PRT")
 
