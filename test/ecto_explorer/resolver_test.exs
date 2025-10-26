@@ -27,6 +27,17 @@ defmodule EctoExplorer.ResolverTest do
       assert :good == Subject.resolve(current, %Step{key: :potatoes})
     end
 
+    # test "it resolves a step for a schema" do
+    #   current = EctoExplorer.Schemas.Address
+
+    #   steps = [%Step{
+    #              # TODO: this is wrong
+    #              key: :addresses,
+    #              where: [first_line: "first_line_PRT_3"]
+    #            }]
+    #   assert :good == Subject.resolve(current, steps)
+    # end
+
     test "it resolves a basic step" do
       current = Repo.get_by(Country, code: "ECU")
 
@@ -288,6 +299,24 @@ defmodule EctoExplorer.ResolverTest do
       assert_raise ArgumentError, fn ->
         Subject.steps(rhs)
       end
+    end
+
+    test "makes steps for a right-hand side starting with a single 'where' clause (integer)" do
+      rhs = quote do: [id = 42].bar
+
+      assert [%Step{key: :id, where: [id: 42]}, %Step{key: :bar}] == Subject.steps(rhs)
+    end
+
+    test "makes steps for a right-hand side starting with a single 'where' clause (string)" do
+      rhs = quote do: [type = "cool"].bar
+
+      assert [%Step{key: :type, where: [type: "cool"]}, %Step{key: :bar}] == Subject.steps(rhs)
+    end
+
+    test "makes steps for a right-hand side starting with a single 'where' clause (atom)" do
+      rhs = quote do: [type = :cool].bar
+
+      assert [%Step{key: :type, where: [type: :cool]}, %Step{key: :bar}] == Subject.steps(rhs)
     end
 
     test "makes steps for a 1-hop right-hand side, the with a single 'where' clause" do

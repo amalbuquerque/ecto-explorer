@@ -106,26 +106,38 @@ defmodule EctoExplorer.Resolver do
 
   # :get is the current node, and Access was the previous
   # so we know there will be one step with index
-  defp process_node(:get, %{visited: [Access | _]} = acc) do
+  defp process_node(:get = node, %{visited: [Access | _]} = acc) do
+    debug_process_node(:before, node, acc)
+
     acc =
       acc
       |> accumulate_node(:get)
       |> increment_expected_index_steps()
 
+    debug_process_node(:after, node, acc)
+
     {:get, acc}
   end
 
-  defp process_node(Access, acc) do
+  defp process_node(Access = node, acc) do
+    debug_process_node(:before, node, acc)
+
     acc = accumulate_node(acc, Access)
+
+    debug_process_node(:after, node, acc)
 
     {Access, acc}
   end
 
   defp process_node({:-, _, _} = node, acc) do
+    debug_process_node(:before, node, acc)
+
     acc =
       acc
       |> accumulate_node(node)
       |> negate_last_step_index()
+
+    debug_process_node(:after, node, acc)
 
     {node, acc}
   end
@@ -137,37 +149,57 @@ defmodule EctoExplorer.Resolver do
   end
 
   defp process_node({:=, _, [{clause_key, _, _}, clause_value]} = node, acc) do
+    debug_process_node(:before, node, acc)
+
     acc =
       acc
       |> accumulate_node(node)
       |> update_last_step_where(clause_key, clause_value)
 
+    debug_process_node(:after, node, acc)
+
     {node, acc}
   end
 
   defp process_node({first_step, _, _} = node, acc) when is_atom(first_step) do
+    debug_process_node(:before, node, acc)
+
     acc = accumulate_node(acc, node, %Step{key: first_step})
+
+    debug_process_node(:after, node, acc)
 
     {node, acc}
   end
 
   defp process_node(step, acc) when is_atom(step) do
+    debug_process_node(:before, step, acc)
+
     acc = accumulate_node(acc, step, %Step{key: step})
+
+    debug_process_node(:after, step, acc)
 
     {step, acc}
   end
 
   defp process_node(index, acc) when is_integer(index) do
+    debug_process_node(:before, index, acc)
+
     acc =
       acc
       |> accumulate_node(index)
       |> update_last_step_index(index)
 
+    debug_process_node(:after, index, acc)
+
     {index, acc}
   end
 
   defp process_node(node, acc) do
+    debug_process_node(:before, node, acc)
+
     acc = accumulate_node(acc, node)
+
+    debug_process_node(:after, node, acc)
 
     {node, acc}
   end
@@ -178,13 +210,24 @@ defmodule EctoExplorer.Resolver do
     %{acc | steps: [updated_step | rest_steps]}
   end
 
+  defp update_last_step_where(%{steps: [_single_step]} = acc, clause_key, clause_value)
+       when is_integer(clause_value) or is_binary(clause_value) do
+    # this happens when the `where` clause is the first step, e.g. Addresses~>[first_line="foo"]
+
+    # let's add a dummy step to make the following clause happy
+    acc
+    |> add_dummy_step()
+    |> increment_expected_index_steps()
+    |> update_last_step_where(clause_key, clause_value)
+  end
+
   defp update_last_step_where(%{steps: [_last_step | rest_steps]} = acc, clause_key, clause_value)
        when is_integer(clause_value) or is_binary(clause_value) do
     # the last_step is about the "key" used by the where clause, so we drop it
     # and add the where clause to the last_step of the rest_steps
     [step_to_update | rest_steps] = rest_steps
     updated_where = Keyword.put(step_to_update.where || [], clause_key, clause_value)
-    updated_step = %{step_to_update | where: updated_where}
+    updated_step = %{step_to_update | where: updated_where, index: nil}
 
     %{acc | steps: [updated_step | rest_steps]}
   end
@@ -199,12 +242,32 @@ defmodule EctoExplorer.Resolver do
     %Step{key: ^clause_value} = last_step
     %Step{key: ^clause_key} = before_last_step
 
-    [step_to_update | rest_steps] = rest_steps
+    # if `where` clause is the first one after operator
+    # e.g. Addresses~>[first_line="foo"].bar.baz[23]
+    # `rest_steps` here are []
+    where_clause_is_first? = rest_steps == []
+
+    [step_to_update | rest_steps] =
+      if where_clause_is_first? do
+        [before_last_step]
+      else
+        rest_steps
+      end
 
     updated_where = Keyword.put(step_to_update.where || [], clause_key, clause_value)
     updated_step = %{step_to_update | where: updated_where}
 
-    %{acc | steps: [updated_step | rest_steps]}
+    acc = %{acc | steps: [updated_step | rest_steps]}
+
+    if where_clause_is_first? do
+      increment_expected_index_steps(acc)
+    else
+      acc
+    end
+  end
+
+  defp add_dummy_step(%{steps: steps} = acc) do
+    %{acc | steps: [:dummy_step | steps]}
   end
 
   defp update_last_step_index(%{steps: [last_step | rest_steps]} = acc, index) do
@@ -232,18 +295,36 @@ defmodule EctoExplorer.Resolver do
     %{acc | visited: [node | visited], steps: [step | steps]}
   end
 
-  def validate_step(current, %Step{key: step_key} = step) when is_map(current) do
+  defp validate_step(current, %Step{key: nil} = step) when is_map_key(current, :__schema__) do
+    {:ok, step}
+  end
+
+  defp validate_step(current, %Step{key: step_key} = step) when is_map(current) do
     case step_key in Map.keys(current) do
       true -> {:ok, step}
       _ -> {:error, :invalid_step}
     end
   end
 
-  def validate_step(nil, _step) do
+  defp validate_step(nil, _step) do
     {:error, :current_is_nil}
   end
 
-  def validate_step(_current, _step) do
+  defp validate_step(_current, _step) do
     {:error, :current_not_struct}
+  end
+
+  if System.get_env("ECTO_EXPLORER_DEBUG") == "true" do
+    defp debug_process_node(moment, node, acc) do
+      if moment == :before do
+        Logger.debug("[process_node] #{moment} #{String.duplicate("=", 50)}")
+      else
+        Logger.debug("[process_node] #{moment}")
+      end
+
+      Logger.debug("[process_node] Node: #{inspect(node)}\n\nAcc: #{inspect(acc)}")
+    end
+  else
+    defp debug_process_node(_moment, _node, _acc), do: :noop
   end
 end
