@@ -319,6 +319,15 @@ defmodule EctoExplorer.ResolverTest do
       assert [%Step{key: nil, where: [type: :cool]}, %Step{key: :bar}] == Subject.steps(rhs)
     end
 
+    test "makes steps for a right-hand side starting with multiple  'where' clauses (integer, atom, string)" do
+      rhs = quote do: [id = 42][status = :cool][last_name = "Woz"][age = 42].bar
+
+      assert [
+        %Step{key: nil, where: [id: 42, status: :cool, last_name: "Woz", age: 42]},
+        %Step{key: :bar}
+      ] == Subject.steps(rhs)
+    end
+
     test "makes steps for a 1-hop right-hand side, the with a single 'where' clause" do
       rhs = quote do: foo[id = 42]
 

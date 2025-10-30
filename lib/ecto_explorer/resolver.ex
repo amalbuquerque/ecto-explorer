@@ -88,7 +88,15 @@ defmodule EctoExplorer.Resolver do
       end)
       |> Enum.sum()
 
-    steps = Enum.reverse(steps)
+    steps = steps
+      |> Enum.reverse()
+      |> Enum.map(fn
+        %{where: nil} = step ->
+          step
+
+        %{where: where_clauses} = step ->
+          %{step | where: Enum.reverse(where_clauses)}
+      end)
 
     if expected_index_steps != steps_with_index do
       raise ArgumentError,
@@ -210,10 +218,9 @@ defmodule EctoExplorer.Resolver do
     %{acc | steps: [updated_step | rest_steps]}
   end
 
+  # this happens when the `where` clause is the first step, e.g. Addresses~>[first_line="foo"]
   defp update_last_step_where(%{steps: [_single_step]} = acc, clause_key, clause_value)
        when is_integer(clause_value) or is_binary(clause_value) do
-    # this happens when the `where` clause is the first step, e.g. Addresses~>[first_line="foo"]
-
     # let's add a dummy step to make the following clause happy
     acc
     |> add_dummy_step()
