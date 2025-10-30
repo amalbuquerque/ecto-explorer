@@ -33,7 +33,7 @@ defmodule EctoExplorer.Resolver do
   end
 
   @doc false
-  def _resolve(current, %Step{key: step_key, index: nil} = step) do
+  def _resolve(current, %Step{key: step_key, index: nil} = step) when step_key != nil do
     case Map.get(current, step_key) do
       %Ecto.Association.NotLoaded{} ->
         current
@@ -219,6 +219,11 @@ defmodule EctoExplorer.Resolver do
     |> add_dummy_step()
     |> increment_expected_index_steps()
     |> update_last_step_where(clause_key, clause_value)
+    |> then(fn %{steps: [last_step | rest_steps]} = acc ->
+      updated_last_step = Map.put(last_step, :key, nil)
+
+      %{acc | steps: [updated_last_step | rest_steps]}
+    end)
   end
 
   defp update_last_step_where(%{steps: [_last_step | rest_steps]} = acc, clause_key, clause_value)
@@ -256,6 +261,15 @@ defmodule EctoExplorer.Resolver do
 
     updated_where = Keyword.put(step_to_update.where || [], clause_key, clause_value)
     updated_step = %{step_to_update | where: updated_where}
+
+    # if where clause is first there's no :key to preload,
+    # the `where` criteria or `index` should be applied to the schema
+    updated_step =
+      if where_clause_is_first? do
+        Map.put(updated_step, :key, nil)
+      else
+        updated_step
+      end
 
     acc = %{acc | steps: [updated_step | rest_steps]}
 
@@ -295,10 +309,6 @@ defmodule EctoExplorer.Resolver do
     %{acc | visited: [node | visited], steps: [step | steps]}
   end
 
-  defp validate_step(current, %Step{key: nil} = step) when is_map_key(current, :__schema__) do
-    {:ok, step}
-  end
-
   defp validate_step(current, %Step{key: step_key} = step) when is_map(current) do
     case step_key in Map.keys(current) do
       true -> {:ok, step}
@@ -310,8 +320,16 @@ defmodule EctoExplorer.Resolver do
     {:error, :current_is_nil}
   end
 
+  defp validate_step(current, %Step{key: nil} = step) when is_atom(current) do
+    if function_exported?(current, :__schema__, 2) do
+      {:ok, step}
+    else
+      {:error, :current_not_struct_or_schema}
+    end
+  end
+
   defp validate_step(_current, _step) do
-    {:error, :current_not_struct}
+    {:error, :current_not_struct_or_schema}
   end
 
   if System.get_env("ECTO_EXPLORER_DEBUG") == "true" do

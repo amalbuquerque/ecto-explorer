@@ -304,19 +304,19 @@ defmodule EctoExplorer.ResolverTest do
     test "makes steps for a right-hand side starting with a single 'where' clause (integer)" do
       rhs = quote do: [id = 42].bar
 
-      assert [%Step{key: :id, where: [id: 42]}, %Step{key: :bar}] == Subject.steps(rhs)
+      assert [%Step{key: nil, where: [id: 42]}, %Step{key: :bar}] == Subject.steps(rhs)
     end
 
     test "makes steps for a right-hand side starting with a single 'where' clause (string)" do
       rhs = quote do: [type = "cool"].bar
 
-      assert [%Step{key: :type, where: [type: "cool"]}, %Step{key: :bar}] == Subject.steps(rhs)
+      assert [%Step{key: nil, where: [type: "cool"]}, %Step{key: :bar}] == Subject.steps(rhs)
     end
 
     test "makes steps for a right-hand side starting with a single 'where' clause (atom)" do
       rhs = quote do: [type = :cool].bar
 
-      assert [%Step{key: :type, where: [type: :cool]}, %Step{key: :bar}] == Subject.steps(rhs)
+      assert [%Step{key: nil, where: [type: :cool]}, %Step{key: :bar}] == Subject.steps(rhs)
     end
 
     test "makes steps for a 1-hop right-hand side, the with a single 'where' clause" do
