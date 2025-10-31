@@ -21,9 +21,9 @@ iex> f~>country.addresses[-1].postal_code
 ## Next steps
 
 - Allow index access to get specific structs by a specific criteria, e.g. `flag~>country.addresses[id=123]` or `flag~>country.addresses[city="Lisbon"]` ✅
+- Allow an actual schema to be passed on the left-hand side (e.g. `Country~>[code="ECU"]`, `Country~>[2]` or `Country~>code`) 🚧
 - Return a single record if the preloaded list only has a single element, or nil if the list is empty
 - Allow the index access (e.g. `[2]`) to be applied after the `where` access (e.g. `[city="Lisbon"]`)
-- Allow an actual schema to be passed on the left-hand side (e.g. `Country~>[code="ECU"]`)
 
 ## Installation
 

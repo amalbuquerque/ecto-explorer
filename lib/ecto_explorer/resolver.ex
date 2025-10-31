@@ -15,6 +15,8 @@ defmodule EctoExplorer.Resolver do
     defstruct [:key, :index, :where]
   end
 
+  import EctoExplorer.Utils
+
   require Logger
 
   alias EctoExplorer.Preloader
@@ -32,16 +34,25 @@ defmodule EctoExplorer.Resolver do
     end
   end
 
-  @doc false
-  def _resolve(current, %Step{key: step_key, index: nil} = step) when step_key != nil do
-    case Map.get(current, step_key) do
+  defp _resolve(current, %Step{key: step_key, index: nil} = step) do
+    resolved =
+      if is_schema_module?(current) do
+        Preloader.preload(current, step)
+      else
+        Map.get(current, step_key)
+      end
+
+    case resolved do
       %Ecto.Association.NotLoaded{} ->
         current
         |> Preloader.preload(step)
         |> _resolve(step)
 
       nil ->
-        Logger.warning("[Current: #{inspect(current)}] Step '#{step_key}' resolved to `nil`")
+        Logger.warning(
+          "[Current: #{inspect(current)}] Step '#{inspect(step_key)}' resolved to `nil`"
+        )
+
         nil
 
       value ->
@@ -49,9 +60,15 @@ defmodule EctoExplorer.Resolver do
     end
   end
 
-  @doc false
-  def _resolve(current, %Step{key: step_key, index: index} = step) when is_integer(index) do
-    case Map.get(current, step_key) do
+  defp _resolve(current, %Step{key: step_key, index: index} = step) when is_integer(index) do
+    resolved =
+      if is_schema_module?(current) do
+        Preloader.preload(current, step)
+      else
+        Map.get(current, step_key)
+      end
+
+    case resolved do
       %Ecto.Association.NotLoaded{} ->
         current
         |> Preloader.preload(step)
@@ -88,7 +105,8 @@ defmodule EctoExplorer.Resolver do
       end)
       |> Enum.sum()
 
-    steps = steps
+    steps =
+      steps
       |> Enum.reverse()
       |> Enum.map(fn
         %{where: nil} = step ->
@@ -328,10 +346,21 @@ defmodule EctoExplorer.Resolver do
   end
 
   defp validate_step(current, %Step{key: nil} = step) when is_atom(current) do
-    if function_exported?(current, :__schema__, 2) do
+    if is_schema_module?(current) do
       {:ok, step}
     else
       {:error, :current_not_struct_or_schema}
+    end
+  end
+
+  defp validate_step(current, %Step{key: step_key} = step) when is_atom(current) do
+    with true <- is_schema_module?(current),
+         fields = current.__schema__(:fields) ++ current.__schema__(:virtual_fields),
+         true <- step_key in fields do
+      {:ok, step}
+    else
+      false ->
+        {:error, :invalid_step}
     end
   end
 

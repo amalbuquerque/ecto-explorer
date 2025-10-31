@@ -27,16 +27,60 @@ defmodule EctoExplorer.ResolverTest do
       assert :good == Subject.resolve(current, %Step{key: :potatoes})
     end
 
-    # test "it resolves a step for a schema" do
-    #   current = EctoExplorer.Schemas.Address
+    test "it resolves a `where` step for a schema" do
+      current = EctoExplorer.Schemas.Address
 
-    #   steps = [%Step{
-    #              # TODO: this is wrong
-    #              key: :addresses,
-    #              where: [first_line: "first_line_PRT_3"]
-    #            }]
-    #   assert :good == Subject.resolve(current, steps)
-    # end
+      step = %Step{where: [first_line: "first_line_PRT_3"]}
+      assert address = Subject.resolve(current, step)
+      assert is_struct(address, Address)
+      assert address.first_line == "first_line_PRT_3"
+    end
+
+    # TODO: fix, still borked
+    test "it resolves an `index` step for a schema" do
+      current = EctoExplorer.Schemas.Address
+
+      # _PRT_1 and _PRT_2 are the 0 and 1 elements
+      step = %Step{index: 2}
+      assert address = Subject.resolve(current, step)
+      assert is_struct(address, Address)
+      assert address.first_line == "first_line_PRT_3"
+    end
+
+    # TODO: fix, still borked
+    test "it resolves a negative `index` step for a schema" do
+      current = EctoExplorer.Schemas.Address
+
+      step = %Step{index: -1}
+      assert address = Subject.resolve(current, step)
+      assert is_struct(address, Address)
+      assert address.first_line == "first_line_PRT_5"
+    end
+
+    # TODO: fix, still borked
+    test "it resolves a `key` step for a schema, which is a field value" do
+      current = EctoExplorer.Schemas.Address
+
+      step = %Step{key: :first_line}
+
+      assert [
+               "TODO: check that we get all first_line values for all addresses"
+             ] = Subject.resolve(current, step)
+    end
+
+    test "it resolves a `key` step for a schema, which is an assoc value" do
+      current = EctoExplorer.Schemas.Address
+
+      step = %Step{key: :country}
+
+      assert [
+               "TODO: check that we get all countries associated to addresses"
+             ] = Subject.resolve(current, step)
+    end
+
+    # TODO: test Address~>[country_id: 42][3], index access
+    # TODO: test Address~>[country_id: 42].first_line, key access to value
+    # TODO: test Address~>[country_id: 42].country, key access to assoc
 
     test "it resolves a basic step" do
       current = Repo.get_by(Country, code: "ECU")
@@ -150,7 +194,7 @@ defmodule EctoExplorer.ResolverTest do
 
       assert capture_log(fn ->
                refute Subject.resolve(current, %Step{key: :good_ol_nil})
-             end) =~ "Step 'good_ol_nil' resolved to `nil`"
+             end) =~ "Step ':good_ol_nil' resolved to `nil`"
     end
 
     for current <- [[:list], [], "a string"] do
@@ -323,9 +367,9 @@ defmodule EctoExplorer.ResolverTest do
       rhs = quote do: [id = 42][status = :cool][last_name = "Woz"][age = 42].bar
 
       assert [
-        %Step{key: nil, where: [id: 42, status: :cool, last_name: "Woz", age: 42]},
-        %Step{key: :bar}
-      ] == Subject.steps(rhs)
+               %Step{key: nil, where: [id: 42, status: :cool, last_name: "Woz", age: 42]},
+               %Step{key: :bar}
+             ] == Subject.steps(rhs)
     end
 
     test "makes steps for a 1-hop right-hand side, the with a single 'where' clause" do
@@ -343,7 +387,7 @@ defmodule EctoExplorer.ResolverTest do
     test "makes steps for a 2-hop right-hand side, the first one with multiple 'where' clauses" do
       rhs = quote do: foo[id = 42][type = "foo"].bar
 
-      assert [%Step{key: :foo, where: [type: "foo", id: 42]}, %Step{key: :bar}] ==
+      assert [%Step{key: :foo, where: [id: 42, type: "foo"]}, %Step{key: :bar}] ==
                Subject.steps(rhs)
     end
 
@@ -353,7 +397,7 @@ defmodule EctoExplorer.ResolverTest do
                 foo[id = 42][type = "abc"].qux[yes = :yup].bar.baz[cool = true].xyz[www = "http"].final
 
       assert [
-               %Step{key: :foo, where: [type: "abc", id: 42]},
+               %Step{key: :foo, where: [id: 42, type: "abc"]},
                %Step{key: :qux, where: [yes: :yup]},
                %Step{key: :bar},
                %Step{key: :baz, where: [cool: true]},

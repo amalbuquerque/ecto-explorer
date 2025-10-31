@@ -1,9 +1,60 @@
 defmodule EctoExplorer.Preloader do
+  @moduledoc """
+  Module responsible for loading the `current` node passed in (if it's a schema module),
+  or alternatively for pre-loading the association given by the `step`.
+  """
   import Ecto.Query
+  import EctoExplorer.Utils
 
   alias EctoExplorer.Resolver.Step
 
-  def preload(current, %Step{key: step_key} = step) do
+  def preload(current, %Step{} = step) do
+    if is_schema_module?(current) do
+      load_schema_current(current, step)
+    else
+      preload_regular_current(current, step)
+    end
+  end
+
+  # this one is a **load** (not _preload_) because we want to fetch the `current` one
+  # from the DB, maybe using the step info for the `where` query clause
+  defp load_schema_current(
+         schema_current,
+         %Step{key: nil, index: nil, where: where_clauses} = step
+       )
+       when is_list(where_clauses) do
+    query = from(x in schema_current)
+
+    query
+    |> maybe_apply_where_clauses(step)
+    |> EctoExplorer.cached_repo().all()
+    |> case do
+      [] ->
+        nil
+
+      [single_result] ->
+        single_result
+
+      result ->
+        result
+    end
+  end
+
+  # this one is a **load** (not _preload_) because we want to fetch the `current` one
+  # from the DB, using the step as query clause
+  defp load_schema_current(
+         schema_current,
+         %Step{key: nil, index: index, where: nil}
+       )
+       when is_integer(index) do
+    query = from(x in schema_current)
+
+    query
+    |> EctoExplorer.cached_repo().all()
+    |> Enum.at(index)
+  end
+
+  defp preload_regular_current(current, %Step{key: step_key} = step) do
     preload_schema = step_module(current, step_key)
     preload_primary_key = preload_primary_key(current, step_key)
     preload_query = from record in preload_schema, order_by: [asc: ^preload_primary_key]
